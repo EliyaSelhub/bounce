@@ -111,11 +111,11 @@ class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(10);
 
-    if (this.highScore > 0) {
-      this.add.text(W / 2, H * 0.68, 'Best: ' + this.highScore, {
-        fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(10);
-    }
+    this.bestText = this.highScore > 0
+      ? this.add.text(W / 2, H * 0.68, 'Best: ' + this.highScore, {
+          fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(10)
+      : null;
   }
 
   spawnCloud(x, y) {
@@ -198,6 +198,7 @@ class GameScene extends Phaser.Scene {
     this.state = 'playing';
     this.pb.allowGravity = true;
     this.prompt.setVisible(false);
+    if (this.bestText) this.bestText.setVisible(false);
   }
 
   // Snap animation to the correct quarter on each platform hit
@@ -289,11 +290,12 @@ class GameScene extends Phaser.Scene {
     });
     this.plats.push(...replacements);
 
-    // Safety: ensure there are always enough clouds visible regardless of game state
-    const onScreen = this.plats.filter(
-      p => !p.poofing && p.x + PLAT_HIT_HALF > 0 && p.x - PLAT_HIT_HALF < W
+    // Safety: count clouds on screen OR approaching from the left so the safety doesn't
+    // fire every frame when the screen is empty (which would flood x=-200 with clouds)
+    const active = this.plats.filter(
+      p => !p.poofing && p.x > -210 && p.x < W + 110
     ).length;
-    if (onScreen < 2) {
+    if (active < 4) {
       const y = Phaser.Math.Between(Math.floor(this.camTop + 80), Math.floor(camBot - 80));
       const { g, circles } = this.spawnCloud(-200, y);
       this.plats.push({ g, circles, x: -200, y, vx: this.cloudVx() });
