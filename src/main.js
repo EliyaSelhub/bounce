@@ -248,11 +248,11 @@ class GameScene extends Phaser.Scene {
 
     const camBot = this.camTop + H;
 
-    // Cull off-screen clouds; every exit spawns a replacement from x=-200
+    // Cull off-screen clouds; every exit spawns one replacement
     const replacements = [];
     this.plats = this.plats.filter(p => {
       if (p.poofing) return false;
-      if (p.x + 95 < 0) { p.g.destroy(); return false; } // exited left (edge case)
+      if (p.x + 95 < 0) { p.g.destroy(); return false; }
       if (p.x - 95 > W) {
         // Drifted off right — re-enter from left at a slight y offset
         const newY = Phaser.Math.Clamp(
@@ -265,11 +265,13 @@ class GameScene extends Phaser.Scene {
         p.g.destroy(); return false;
       }
       if (p.y - 65 > camBot) {
-        // Scrolled off bottom — replace at a random y in the current viewport
+        // Scrolled off bottom as camera moved up — replace at random position on screen
+        // (these clouds are "revealed" by the camera, so they appear in the world naturally)
         const newY = Phaser.Math.Between(Math.floor(this.camTop + 60), Math.floor(camBot - 60));
+        const newX = Phaser.Math.Between(0, W);
         const vx = this.cloudVx();
-        const { g, circles } = this.spawnCloud(-200, newY);
-        replacements.push({ g, circles, x: -200, y: newY, vx });
+        const { g, circles } = this.spawnCloud(newX, newY);
+        replacements.push({ g, circles, x: newX, y: newY, vx });
         p.g.destroy(); return false;
       }
       return true;
