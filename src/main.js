@@ -30,7 +30,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
 
   preload() {
-    this.load.spritesheet('bot', '/assets/Bot-jump.png', {
+    this.load.spritesheet('bot', import.meta.env.BASE_URL + 'assets/Bot-jump.png', {
       frameWidth: 256,
       frameHeight: 256,
     });
