@@ -171,12 +171,13 @@ class GameScene extends Phaser.Scene {
       // Scatter away from impact point; +35 downward bias so pieces fall outward
       const angle = Math.atan2(cy + 35, cx - relX) + Phaser.Math.FloatBetween(-0.3, 0.3);
       const dist  = Phaser.Math.FloatBetween(70, 200);
+      const targetScale = Phaser.Math.Between(1.25,2)
       this.tweens.add({
         targets: mini,
         x: mini.x + Math.cos(angle) * dist,
         y: mini.y + Math.sin(angle) * dist,
-        scaleX: 0,
-        scaleY: 0,
+        scaleX: targetScale,
+        scaleY: targetScale,
         alpha: 0,
         duration: Phaser.Math.Between(250, 400),
         ease: 'Cubic.Out',
@@ -251,7 +252,7 @@ class GameScene extends Phaser.Scene {
     // As camera scrolls up, fill newly revealed area at top with clouds at random positions
     const toAdd = [];
     while (this.scrollFillY > this.camTop) {
-      this.scrollFillY -= Phaser.Math.Between(200, 500);
+      this.scrollFillY -= Phaser.Math.Between(200, 400);
       const x = Phaser.Math.Between(-50, W-100);
       const vx = this.cloudVx();
       const { g, circles } = this.spawnCloud(x, this.scrollFillY);
