@@ -71,17 +71,16 @@ class GameScene extends Phaser.Scene {
     this.nextPlatY = DISPLAY_SIZE / 2 + 100;
     this.spawnBelow(this.camTop + H + H * 0.5);
 
-    // Initial clouds: random positions across the visible screen
-    for (let i = 0; i < 8; i++) {
-      const x = Phaser.Math.Between(0, W);
-      const y = Phaser.Math.Between(Math.floor(this.camTop), Math.floor(this.camTop + H));
+    // Initial clouds: stagger across screen so they enter and cycle naturally
+    const CLOUD_COUNT = 5;
+    for (let i = 0; i < CLOUD_COUNT; i++) {
+      // x spread from off-screen left to mid-screen so they arrive at different times
+      const x = -200 + Math.round((i / (CLOUD_COUNT - 1)) * (W * 0.8));
+      const y = Phaser.Math.Between(Math.floor(this.camTop + 60), Math.floor(this.camTop + H - 60));
       const vx = this.cloudVx();
       const { g, circles } = this.spawnCloud(x, y);
       this.plats.push({ g, circles, x, y, vx });
     }
-
-    // Tracks how far up we've filled clouds on scroll
-    this.scrollFillY = this.camTop;
 
     // Input — pointermove fires on desktop always, on mobile only while touching
     this.input.on('pointermove', ptr => { this.targetX = ptr.x; });
@@ -168,10 +167,10 @@ class GameScene extends Phaser.Scene {
       mini.fillStyle(0xffffff, 1);
       mini.fillCircle(0, 0, r);
       mini.setPosition(p.x + cx, p.y + cy);
-      // Scatter away from impact point; +35 downward bias so pieces fall outward
-      const angle = Math.atan2(cy + 35, cx - relX) + Phaser.Math.FloatBetween(-0.3, 0.3);
-      const dist  = Phaser.Math.FloatBetween(70, 200);
-      const targetScale = Phaser.Math.Between(1.25,2)
+      // Scatter away from impact point; +65 downward bias so pieces fall outward
+      const angle = Math.atan2(cy + 65, cx - relX) + Phaser.Math.FloatBetween(-0.3, 0.3);
+      const dist  = Phaser.Math.FloatBetween(50, 120);
+      const targetScale = 0;
       this.tweens.add({
         targets: mini,
         x: mini.x + Math.cos(angle) * dist,
@@ -249,34 +248,30 @@ class GameScene extends Phaser.Scene {
 
     const camBot = this.camTop + H;
 
-    // As camera scrolls up, fill newly revealed area at top with clouds at random positions
-    const toAdd = [];
-    while (this.scrollFillY > this.camTop) {
-      this.scrollFillY -= Phaser.Math.Between(200, 400);
-      const x = Phaser.Math.Between(-50, W-100);
-      const vx = this.cloudVx();
-      const { g, circles } = this.spawnCloud(x, this.scrollFillY);
-      toAdd.push({ g, circles, x, y: this.scrollFillY, vx });
-    }
-    this.plats.push(...toAdd);
-
-    // Cull off-screen clouds; replace right-exits with a new cloud from the left
+    // Cull off-screen clouds; every exit spawns a replacement from x=-200
     const replacements = [];
     this.plats = this.plats.filter(p => {
       if (p.poofing) return false;
-      if (p.x + 95 < 0) { p.g.destroy(); return false; } // exited left (shouldn't happen)
+      if (p.x + 95 < 0) { p.g.destroy(); return false; } // exited left (edge case)
       if (p.x - 95 > W) {
-        // Replace: new cloud from x=-200 at a slight vertical offset
+        // Drifted off right — re-enter from left at a slight y offset
         const newY = Phaser.Math.Clamp(
-          p.y + Phaser.Math.Between(-100, 100),
-          this.camTop, camBot,
+          p.y + Phaser.Math.Between(-120, 120),
+          this.camTop + 60, camBot - 60,
         );
         const vx = this.cloudVx();
         const { g, circles } = this.spawnCloud(-200, newY);
         replacements.push({ g, circles, x: -200, y: newY, vx });
         p.g.destroy(); return false;
       }
-      if (p.y - 65 > camBot) { p.g.destroy(); return false; } // scrolled off bottom
+      if (p.y - 65 > camBot) {
+        // Scrolled off bottom — replace at a random y in the current viewport
+        const newY = Phaser.Math.Between(Math.floor(this.camTop + 60), Math.floor(camBot - 60));
+        const vx = this.cloudVx();
+        const { g, circles } = this.spawnCloud(-200, newY);
+        replacements.push({ g, circles, x: -200, y: newY, vx });
+        p.g.destroy(); return false;
+      }
       return true;
     });
     this.plats.push(...replacements);
@@ -330,16 +325,6 @@ class GameScene extends Phaser.Scene {
 
     // Keep platforms filled below camera for the initial fall
     this.spawnBelow(camBot + H * 0.5);
-
-    // Safety: if the screen is nearly empty, inject clouds from the left
-    const onScreen = this.plats.filter(
-      p => !p.poofing && p.x + PLAT_HIT_HALF > 0 && p.x - PLAT_HIT_HALF < W
-    ).length;
-    if (onScreen < 2) {
-      const y = Phaser.Math.Between(Math.floor(this.camTop + 80), Math.floor(camBot - 80));
-      const { g, circles } = this.spawnCloud(-200, y);
-      this.plats.push({ g, circles, x: -200, y, vx: this.cloudVx() });
-    }
 
     // Score = highest world Y reached (negative = up)
     if (this.player.y < this.highestY) {
