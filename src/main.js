@@ -71,52 +71,17 @@ class GameScene extends Phaser.Scene {
     this.nextPlatY = DISPLAY_SIZE / 2 + 100;
     this.spawnBelow(this.camTop + H + H * 0.5);
 
-    // Pre-seed: distribute clouds across visible zone + buffer above
-    for (let i = 0; i < 12; i++) {
-      const y = Phaser.Math.Between(
-        Math.floor(this.camTop - H * 0.8),
-        Math.floor(this.camTop + H),
-      );
+    // Initial clouds: random positions across the visible screen
+    for (let i = 0; i < 8; i++) {
+      const x = Phaser.Math.Between(0, W);
+      const y = Phaser.Math.Between(Math.floor(this.camTop), Math.floor(this.camTop + H));
       const vx = this.cloudVx();
-      let x;
-      if (y < this.camTop) {
-        // Above viewport: drift-compensated so it's mid-screen when camera arrives
-        const dist = this.player.y - y;
-        const T    = dist / 145;
-        x = Math.max(-200, Math.round(W * 0.4 - vx * T));
-      } else {
-        // Within viewport: stagger across screen as if mid-stream at game start
-        x = -200 + i * 55; // −200 … 405 — clouds at various stages of crossing
-      }
       const { g, circles } = this.spawnCloud(x, y);
       this.plats.push({ g, circles, x, y, vx });
     }
 
-    // Stream clouds from left, covering visible zone PLUS buffer above (jump destination)
-    this.time.addEvent({
-      delay: 700,
-      loop: true,
-      callback: () => {
-        const y = Phaser.Math.Between(
-          Math.floor(this.camTop - H * 0.8),
-          Math.floor(this.camTop + H),
-        );
-        const vx = this.cloudVx();
-        let x;
-        if (y < this.camTop) {
-          // Above viewport: player can't see this yet, so place it at drift-compensated X
-          // so it's mid-screen by the time the camera scrolls up to it
-          const dist = this.player.y - y;
-          const T    = dist / 145;
-          x = Math.max(-200, Math.round(W * 0.4 - vx * T));
-        } else {
-          // Within viewport: must enter from left edge — never pop in on screen
-          x = -200;
-        }
-        const { g, circles } = this.spawnCloud(x, y);
-        this.plats.push({ g, circles, x, y, vx });
-      },
-    });
+    // Tracks how far up we've filled clouds on scroll
+    this.scrollFillY = this.camTop;
 
     // Input — pointermove fires on desktop always, on mobile only while touching
     this.input.on('pointermove', ptr => { this.targetX = ptr.x; });
@@ -283,15 +248,37 @@ class GameScene extends Phaser.Scene {
 
     const camBot = this.camTop + H;
 
-    // Cull when off-screen in any direction
+    // As camera scrolls up, fill newly revealed area at top with clouds at random positions
+    const toAdd = [];
+    while (this.scrollFillY > this.camTop) {
+      this.scrollFillY -= Phaser.Math.Between(200, 500);
+      const x = Phaser.Math.Between(-50, W-100);
+      const vx = this.cloudVx();
+      const { g, circles } = this.spawnCloud(x, this.scrollFillY);
+      toAdd.push({ g, circles, x, y: this.scrollFillY, vx });
+    }
+    this.plats.push(...toAdd);
+
+    // Cull off-screen clouds; replace right-exits with a new cloud from the left
+    const replacements = [];
     this.plats = this.plats.filter(p => {
       if (p.poofing) return false;
-      if (p.x + 95 < 0)          { p.g.destroy(); return false; } // exited left
-      if (p.x - 95 > W)          { p.g.destroy(); return false; } // exited right
-      if (p.y - 65 > camBot)     { p.g.destroy(); return false; } // scrolled off bottom
-      if (p.y < this.camTop - H * 2) { p.g.destroy(); return false; } // too far above
+      if (p.x + 95 < 0) { p.g.destroy(); return false; } // exited left (shouldn't happen)
+      if (p.x - 95 > W) {
+        // Replace: new cloud from x=-200 at a slight vertical offset
+        const newY = Phaser.Math.Clamp(
+          p.y + Phaser.Math.Between(-100, 100),
+          this.camTop, camBot,
+        );
+        const vx = this.cloudVx();
+        const { g, circles } = this.spawnCloud(-200, newY);
+        replacements.push({ g, circles, x: -200, y: newY, vx });
+        p.g.destroy(); return false;
+      }
+      if (p.y - 65 > camBot) { p.g.destroy(); return false; } // scrolled off bottom
       return true;
     });
+    this.plats.push(...replacements);
 
     if (this.state !== 'playing') return;
 
