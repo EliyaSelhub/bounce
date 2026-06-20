@@ -41,6 +41,7 @@ class GameScene extends Phaser.Scene {
     this.state = 'idle';
     this.score = 0;
     this.highestY = 0; // world y=0 is start; going up means negative y
+    this.highScore = parseInt(localStorage.getItem('bounceHighScore') || '0', 10);
 
     // Camera: top of screen in world coords.
     // Player is at world y=0 and should appear at PLAYER_HOME_Y on screen.
@@ -109,6 +110,12 @@ class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(10);
+
+    if (this.highScore > 0) {
+      this.add.text(W / 2, H * 0.68, 'Best: ' + this.highScore, {
+        fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(10);
+    }
   }
 
   spawnCloud(x, y) {
@@ -358,13 +365,22 @@ class GameScene extends Phaser.Scene {
     this.pb.allowGravity = false;
     this.pb.setVelocity(0, 0);
 
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      localStorage.setItem('bounceHighScore', this.highScore);
+    }
+
     this.add.text(W / 2, H * 0.37, 'GAME OVER', {
       fontSize: '50px', fontFamily: 'monospace',
       color: '#ff5252', stroke: '#000', strokeThickness: 6,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
 
-    this.add.text(W / 2, H * 0.56, 'Score: ' + this.score, {
+    this.add.text(W / 2, H * 0.50, 'Score: ' + this.score, {
       fontSize: '30px', color: '#ffe082', stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
+
+    this.add.text(W / 2, H * 0.59, 'Best: ' + this.highScore, {
+      fontSize: '22px', color: '#ffffff', stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(20);
 
     this.time.delayedCall(1500, () => {
