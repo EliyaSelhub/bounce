@@ -71,14 +71,23 @@ class GameScene extends Phaser.Scene {
     this.nextPlatY = DISPLAY_SIZE / 2 + 100;
     this.spawnBelow(this.camTop + H + H * 0.5);
 
-    // Pre-seed: distribute clouds across visible zone + buffer above (where player is heading)
+    // Pre-seed: distribute clouds across visible zone + buffer above
     for (let i = 0; i < 12; i++) {
       const y = Phaser.Math.Between(
         Math.floor(this.camTop - H * 0.8),
         Math.floor(this.camTop + H),
       );
       const vx = this.cloudVx();
-      const x = Phaser.Math.Between(-100, Math.floor(W * 0.65));
+      let x;
+      if (y < this.camTop) {
+        // Above viewport: drift-compensated so it's mid-screen when camera arrives
+        const dist = this.player.y - y;
+        const T    = dist / 145;
+        x = Math.max(-200, Math.round(W * 0.4 - vx * T));
+      } else {
+        // Within viewport: stagger across screen as if mid-stream at game start
+        x = -200 + i * 55; // −200 … 405 — clouds at various stages of crossing
+      }
       const { g, circles } = this.spawnCloud(x, y);
       this.plats.push({ g, circles, x, y, vx });
     }
@@ -93,10 +102,17 @@ class GameScene extends Phaser.Scene {
           Math.floor(this.camTop + H),
         );
         const vx = this.cloudVx();
-        // For clouds above the camera, offset X so they're mid-screen when camera reaches them
-        const dist = Math.max(0, this.player.y - y);
-        const T    = dist / 145;
-        const x    = Math.max(-200, Math.round(W * 0.4 - vx * T));
+        let x;
+        if (y < this.camTop) {
+          // Above viewport: player can't see this yet, so place it at drift-compensated X
+          // so it's mid-screen by the time the camera scrolls up to it
+          const dist = this.player.y - y;
+          const T    = dist / 145;
+          x = Math.max(-200, Math.round(W * 0.4 - vx * T));
+        } else {
+          // Within viewport: must enter from left edge — never pop in on screen
+          x = -200;
+        }
         const { g, circles } = this.spawnCloud(x, y);
         this.plats.push({ g, circles, x, y, vx });
       },
