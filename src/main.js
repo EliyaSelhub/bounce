@@ -273,7 +273,6 @@ class GameScene extends Phaser.Scene {
     const replacements = [];
     this.plats = this.plats.filter(p => {
       if (p.poofing) return false;
-      if (p.x + 110 < 0) { p.g.destroy(); return false; } // exited left
       if (p.x - 110 > W) {
         // Replace: new cloud from x=-200 at a slight vertical offset
         const newY = Phaser.Math.Clamp(
