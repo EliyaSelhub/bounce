@@ -71,10 +71,11 @@ class GameScene extends Phaser.Scene {
     this.nextPlatY = DISPLAY_SIZE / 2 + 100;
     this.spawnBelow(this.camTop + H + H * 0.5);
 
-    // Initial clouds: random positions across the visible screen
-    for (let i = 0; i < 8; i++) {
-      const x = Phaser.Math.Between(0, W);
-      const y = Phaser.Math.Between(Math.floor(this.camTop), Math.floor(this.camTop + H));
+    // Initial clouds: evenly staggered so exits are spread over time, not all at once
+    const INIT_CLOUDS = 4;
+    for (let i = 0; i < INIT_CLOUDS; i++) {
+      const x = Math.round(-200 + (i / (INIT_CLOUDS - 1)) * (W * 0.9));
+      const y = Phaser.Math.Between(Math.floor(this.camTop + 60), Math.floor(this.camTop + H - 60));
       const vx = this.cloudVx();
       const { g, circles } = this.spawnCloud(x, y);
       this.plats.push({ g, circles, x, y, vx });
@@ -264,8 +265,8 @@ class GameScene extends Phaser.Scene {
     const replacements = [];
     this.plats = this.plats.filter(p => {
       if (p.poofing) return false;
-      if (p.x + 95 < 0) { p.g.destroy(); return false; } // exited left (shouldn't happen)
-      if (p.x - 95 > W) {
+      if (p.x + 110 < 0) { p.g.destroy(); return false; } // exited left
+      if (p.x - 110 > W) {
         // Replace: new cloud from x=-200 at a slight vertical offset
         const newY = Phaser.Math.Clamp(
           p.y + Phaser.Math.Between(-100, 100),
@@ -280,6 +281,16 @@ class GameScene extends Phaser.Scene {
       return true;
     });
     this.plats.push(...replacements);
+
+    // Safety: ensure there are always enough clouds visible regardless of game state
+    const onScreen = this.plats.filter(
+      p => !p.poofing && p.x + PLAT_HIT_HALF > 0 && p.x - PLAT_HIT_HALF < W
+    ).length;
+    if (onScreen < 2) {
+      const y = Phaser.Math.Between(Math.floor(this.camTop + 80), Math.floor(camBot - 80));
+      const { g, circles } = this.spawnCloud(-200, y);
+      this.plats.push({ g, circles, x: -200, y, vx: this.cloudVx() });
+    }
 
     if (this.state !== 'playing') return;
 
@@ -330,16 +341,6 @@ class GameScene extends Phaser.Scene {
 
     // Keep platforms filled below camera for the initial fall
     this.spawnBelow(camBot + H * 0.5);
-
-    // Safety: if the screen is nearly empty, inject clouds from the left
-    const onScreen = this.plats.filter(
-      p => !p.poofing && p.x + PLAT_HIT_HALF > 0 && p.x - PLAT_HIT_HALF < W
-    ).length;
-    if (onScreen < 2) {
-      const y = Phaser.Math.Between(Math.floor(this.camTop + 80), Math.floor(camBot - 80));
-      const { g, circles } = this.spawnCloud(-200, y);
-      this.plats.push({ g, circles, x: -200, y, vx: this.cloudVx() });
-    }
 
     // Score = highest world Y reached (negative = up)
     if (this.player.y < this.highestY) {
